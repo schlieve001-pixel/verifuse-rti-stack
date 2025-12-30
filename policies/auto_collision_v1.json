@@ -1,0 +1,17 @@
+{
+  "policy_id": "AUTO-COLLISION-v1",
+  "roles": {
+    "required": [
+      "overview",
+      "detail_damage",
+      "id_document"
+    ],
+    "optional": [
+      "witness_audio"
+    ],
+    "forbidden": []
+  },
+  "time": {
+    "max_skew_seconds": 600
+  }
+}

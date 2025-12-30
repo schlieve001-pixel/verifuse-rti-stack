@@ -1,0 +1,15 @@
+{
+  "record_id": "rec-1234",
+  "decision": "valid",
+  "layer_results": {
+    "rti0": "ok",
+    "rti1": "ok",
+    "rti2": "ok",
+    "rti3": "ok",
+    "rti4": "ok",
+    "record": "ok",
+    "media": "ok",
+    "certificate": "not_provided"
+  },
+  "issues": []
+}
