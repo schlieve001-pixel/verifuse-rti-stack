@@ -1,0 +1,9 @@
+{
+  "name": "VeriFuse RTI Verifier",
+  "short_name": "RTI Verifier",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f1115",
+  "theme_color": "#4f46e5",
+  "icons": []
+}
