@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RTI-0",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["rti0_id", "time_utc", "policy_id"],
+  "properties": {
+    "rti0_id": {"type": "string"},
+    "time_utc": {"type": "string"},
+    "policy_id": {"type": "string"}
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RTI-4",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["checks", "transcript"],
+  "properties": {
+    "checks": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["time", "policy"],
+      "properties": {
+        "time": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["max_skew_seconds"],
+          "properties": {
+            "max_skew_seconds": {"type": "number"}
+          }
+        },
+        "policy": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["policy_id"],
+          "properties": {
+            "policy_id": {"type": "string"}
+          }
+        }
+      }
+    },
+    "transcript": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["step_id", "ts_utc", "kind", "result"],
+        "properties": {
+          "step_id": {"type": "string"},
+          "ts_utc": {"type": "string"},
+          "kind": {"type": "string"},
+          "result": {"type": "string"},
+          "actor_ref": {"type": "string"},
+          "file_ref": {"type": "string"}
+        }
+      }
+    }
+  }
+}

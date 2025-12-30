@@ -38,6 +38,224 @@ const parseJsonFile = async (file) => {
   return JSON.parse(text);
 };
 
+const schemaByLayer = {
+  rti0: {
+    type: "object",
+    required: ["rti0_id", "time_utc", "policy_id"],
+    properties: {
+      rti0_id: { type: "string" },
+      time_utc: { type: "string" },
+      policy_id: { type: "string" },
+    },
+  },
+  rti1: {
+    type: "object",
+    required: ["files"],
+    properties: {
+      files: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["file_id", "capture_time_utc", "hash_algo", "hash_value"],
+          properties: {
+            file_id: { type: "string" },
+            capture_time_utc: { type: "string" },
+            hash_algo: { type: "string" },
+            hash_value: { type: "string" },
+          },
+        },
+      },
+    },
+  },
+  rti2: {
+    type: "object",
+    required: ["set"],
+    properties: {
+      set: {
+        type: "object",
+        required: ["set_id", "rti0_id", "policy_id", "files"],
+        properties: {
+          set_id: { type: "string" },
+          rti0_id: { type: "string" },
+          policy_id: { type: "string" },
+          files: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["file_id", "role", "required"],
+              properties: {
+                file_id: { type: "string" },
+                role: { type: "string" },
+                required: { type: "boolean" },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  rti3: {
+    type: "object",
+    required: ["actor"],
+    properties: {
+      actor: {
+        type: "object",
+        required: ["actor_id", "rti0_id"],
+        properties: {
+          actor_id: { type: "string" },
+          rti0_id: { type: "string" },
+        },
+      },
+    },
+  },
+  rti4: {
+    type: "object",
+    required: ["checks", "transcript"],
+    properties: {
+      checks: {
+        type: "object",
+        required: ["time", "policy"],
+        properties: {
+          time: {
+            type: "object",
+            required: ["max_skew_seconds"],
+            properties: {
+              max_skew_seconds: { type: "number" },
+            },
+          },
+          policy: {
+            type: "object",
+            required: ["policy_id"],
+            properties: {
+              policy_id: { type: "string" },
+            },
+          },
+        },
+      },
+      transcript: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["step_id", "ts_utc", "kind", "result"],
+          properties: {
+            step_id: { type: "string" },
+            ts_utc: { type: "string" },
+            kind: { type: "string" },
+            result: { type: "string" },
+            actor_ref: { type: "string" },
+            file_ref: { type: "string" },
+          },
+        },
+      },
+    },
+  },
+  rti6: {
+    type: "object",
+    required: ["certificate"],
+    properties: {
+      certificate: {
+        type: "object",
+        required: ["record_id"],
+        properties: {
+          record_id: { type: "string" },
+          record_hash: { type: "string" },
+          integrity: {
+            type: "object",
+            properties: {
+              record_hash: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+const isValidType = (value, expected) => {
+  if (expected === "object") {
+    return value && typeof value === "object" && !Array.isArray(value);
+  }
+  if (expected === "array") {
+    return Array.isArray(value);
+  }
+  if (expected === "string") {
+    return typeof value === "string";
+  }
+  if (expected === "boolean") {
+    return typeof value === "boolean";
+  }
+  if (expected === "number") {
+    return typeof value === "number";
+  }
+  return true;
+};
+
+const pushSchemaIssue = (issues, layer, path, message) => {
+  issues.push({
+    code: "SCHEMA_ERROR",
+    severity: "critical",
+    layer,
+    details: `schema violation at ${path}: ${message}`,
+  });
+};
+
+const validateSchemaValue = (value, schema, path, layer, issues) => {
+  const schemaType = schema.type;
+  if (schemaType && !isValidType(value, schemaType)) {
+    pushSchemaIssue(
+      issues,
+      layer,
+      path,
+      `expected ${schemaType} but found ${Array.isArray(value) ? "array" : typeof value}`
+    );
+    return;
+  }
+  if (schemaType === "object") {
+    const required = schema.required || [];
+    const properties = schema.properties || {};
+    required.forEach((prop) => {
+      if (!(prop in value)) {
+        pushSchemaIssue(issues, layer, `${path}/${prop}`, "missing required field");
+      }
+    });
+    Object.entries(properties).forEach(([prop, subschema]) => {
+      if (prop in value) {
+        validateSchemaValue(value[prop], subschema, `${path}/${prop}`, layer, issues);
+      }
+    });
+  }
+  if (schemaType === "array" && schema.items) {
+    value.forEach((item, index) => {
+      validateSchemaValue(item, schema.items, `${path}/${index}`, layer, issues);
+    });
+  }
+};
+
+const validateBundleSchema = (bundle, certificate) => {
+  const issues = [];
+  ["rti0", "rti1", "rti2", "rti3", "rti4"].forEach((layer) => {
+    if (!bundle[layer]) {
+      pushSchemaIssue(issues, layer, `/${layer}`, "missing required object");
+      return;
+    }
+    validateSchemaValue(bundle[layer], schemaByLayer[layer], `/${layer}`, layer, issues);
+  });
+  if (certificate) {
+    if (!certificate.rti6) {
+      pushSchemaIssue(issues, "certificate", "/rti6", "missing required object");
+    } else {
+      validateSchemaValue(
+        certificate.rti6,
+        schemaByLayer.rti6,
+        "/rti6",
+        "certificate",
+        issues
+      );
+    }
+  }
+  return issues;
+};
+
 const collectMediaMap = async (files) => {
   const map = new Map();
   for (const file of files) {
@@ -56,17 +274,10 @@ const verifyBundle = async (bundle, mediaMap, certificate) => {
   const record = bundle.record || {};
   const digests = record.digests || {};
 
-  const requireKeys = ["record", "rti0", "rti1", "rti2", "rti3", "rti4"];
-  requireKeys.forEach((key) => {
-    if (!bundle[key]) {
-      issues.push({
-        code: "SCHEMA_ERROR",
-        severity: "critical",
-        layer: "schema",
-        details: `missing top-level key: ${key}`,
-      });
-    }
-  });
+  if (!bundle.record) {
+    pushSchemaIssue(issues, "record", "/record", "missing required object");
+  }
+  issues.push(...validateBundleSchema(bundle, certificate));
 
   if (issues.length) {
     return buildResult(record.record_id || "unknown", issues);

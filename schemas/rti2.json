@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RTI-2",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["set"],
+  "properties": {
+    "set": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["set_id", "rti0_id", "policy_id", "files"],
+      "properties": {
+        "set_id": {"type": "string"},
+        "rti0_id": {"type": "string"},
+        "policy_id": {"type": "string"},
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["file_id", "role", "required"],
+            "properties": {
+              "file_id": {"type": "string"},
+              "role": {"type": "string"},
+              "required": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

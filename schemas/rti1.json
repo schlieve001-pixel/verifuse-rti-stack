@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RTI-1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["files"],
+  "properties": {
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["file_id", "capture_time_utc", "hash_algo", "hash_value"],
+        "properties": {
+          "file_id": {"type": "string"},
+          "capture_time_utc": {"type": "string"},
+          "hash_algo": {"type": "string"},
+          "hash_value": {"type": "string"}
+        }
+      }
+    }
+  }
+}
