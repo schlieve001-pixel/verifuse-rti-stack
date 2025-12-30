@@ -22,6 +22,12 @@ To install on a phone:
 - Serve the `web/` folder locally (for service worker support).
 - Open the URL on your phone and use “Add to Home Screen.”
 
+Quick host command:
+
+```bash
+python tools/serve_web.py
+```
+
 ## Testing
 
 ```bash
