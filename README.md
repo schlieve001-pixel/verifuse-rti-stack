@@ -28,6 +28,17 @@ Quick host command:
 python tools/serve_web.py
 ```
 
+## Android App (Capture Wizard Scaffold)
+
+The Android app scaffold lives under `android/` and provides the capture wizard shell
+that will be wired to CameraX, audio, GNSS, and sensor capture.
+
+From the `android/` directory:
+
+```bash
+./gradlew :app:assembleDebug
+```
+
 ## Testing
 
 ```bash
