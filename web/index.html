@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VeriFuse RTI Verifier</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>VeriFuse RTI Verifier</h1>
+        <p>Offline verification for RTI bundles (bundle.json + media files).</p>
+      </header>
+
+      <section class="panel">
+        <h2>Inputs</h2>
+        <label>
+          Bundle (bundle.json)
+          <input id="bundle-input" type="file" accept="application/json" />
+        </label>
+        <label>
+          Media files (select all files in media/)
+          <input id="media-input" type="file" multiple />
+        </label>
+        <label>
+          Certificate (optional)
+          <input id="certificate-input" type="file" accept="application/json" />
+        </label>
+        <button id="verify-btn" type="button">Verify</button>
+      </section>
+
+      <section class="panel">
+        <h2>Result</h2>
+        <div id="status" class="status">Waiting for inputs…</div>
+        <pre id="result"></pre>
+        <button id="download-btn" type="button" disabled>Download Report</button>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
