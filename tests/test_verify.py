@@ -156,6 +156,27 @@ class VerifyBundleTests(unittest.TestCase):
             self.assertEqual(result["decision"], "suspect")
             self.assertTrue(result["issues"])
 
+    def test_certificate_mismatch_is_suspect(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            media_root = Path(tmp) / "media"
+            bundle = _build_bundle(media_root)
+            bundle_path = Path(tmp) / "bundle.json"
+            bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+            certificate = {
+                "rti6": {
+                    "certificate": {
+                        "integrity": {"record_hash": "deadbeef"},
+                        "record_id": "rec-1234",
+                    }
+                }
+            }
+            cert_path = Path(tmp) / "rti6.json"
+            cert_path.write_text(json.dumps(certificate), encoding="utf-8")
+
+            result = verify_bundle(bundle_path, Path(tmp), cert_path)
+            self.assertEqual(result["decision"], "suspect")
+            self.assertTrue(result["issues"])
+
 
 if __name__ == "__main__":
     unittest.main()

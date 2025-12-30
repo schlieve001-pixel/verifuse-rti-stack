@@ -281,6 +281,9 @@ def _verify_cross_links(bundle: Dict[str, Any]) -> List[Issue]:
             )
         )
     rti1_ids = {item["file_id"] for item in bundle["rti1"].get("files", [])}
+    record_ids = {
+        item.get("file_id") for item in bundle["record"].get("media_index", [])
+    }
     for item in rti2.get("files", []):
         file_id = item.get("file_id")
         if file_id and file_id not in rti1_ids:
@@ -290,6 +293,17 @@ def _verify_cross_links(bundle: Dict[str, Any]) -> List[Issue]:
                     severity="critical",
                     layer="rti2",
                     details=f"rti2 references missing file_id {file_id}",
+                    related_ids=[file_id],
+                )
+            )
+    for file_id in record_ids:
+        if file_id and file_id not in rti1_ids:
+            issues.append(
+                Issue(
+                    code="XREF_MISMATCH",
+                    severity="critical",
+                    layer="record",
+                    details=f"record.media_index references missing file_id {file_id}",
                     related_ids=[file_id],
                 )
             )

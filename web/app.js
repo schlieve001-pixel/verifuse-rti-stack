@@ -31,8 +31,7 @@ const sortObject = (value) => {
   return value;
 };
 
-const canonicalize = (value) =>
-  JSON.stringify(sortObject(value), Object.keys(sortObject(value)), 0);
+const canonicalize = (value) => JSON.stringify(sortObject(value));
 
 const parseJsonFile = async (file) => {
   const text = await file.text();
@@ -236,3 +235,9 @@ verifyBtn.addEventListener("click", async () => {
     URL.revokeObjectURL(url);
   };
 });
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js");
+  });
+}
