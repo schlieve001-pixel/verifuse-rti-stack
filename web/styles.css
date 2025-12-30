@@ -1,0 +1,70 @@
+body {
+  margin: 0;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  background: #0f1115;
+  color: #f3f4f6;
+}
+
+.container {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+
+header h1 {
+  margin-bottom: 8px;
+}
+
+header p {
+  color: #cbd5f5;
+}
+
+.panel {
+  background: #171a22;
+  border: 1px solid #2b2f3a;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+label {
+  display: block;
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+
+input[type="file"] {
+  display: block;
+  margin-top: 8px;
+  color: #cbd5f5;
+}
+
+button {
+  background: #4f46e5;
+  border: none;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #3a3f4b;
+  cursor: not-allowed;
+}
+
+.status {
+  padding: 12px;
+  border-radius: 8px;
+  background: #111827;
+  margin-bottom: 12px;
+}
+
+pre {
+  background: #0b0d13;
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 360px;
+  overflow: auto;
+}
