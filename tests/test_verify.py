@@ -62,6 +62,7 @@ def _build_bundle(media_root: Path):
                 {"file_id": "file-003", "role": "id_document", "required": True},
                 {"file_id": "file-004", "role": "witness_audio", "required": False},
             ],
+            "coverage": {"status": "complete"},
         }
     }
     anchor_phrase = "front driver side damage only"
@@ -210,6 +211,24 @@ class VerifyBundleTests(unittest.TestCase):
             bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
 
             result = verify_bundle(bundle_path, Path(tmp))
+            self.assertEqual(result["decision"], "invalid")
+            self.assertTrue(result["issues"])
+
+    def test_policy_missing_required_role_invalid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            media_root = Path(tmp) / "media"
+            bundle = _build_bundle(media_root)
+            bundle_path = Path(tmp) / "bundle.json"
+            bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+            policy = {
+                "policy_id": "AUTO-COLLISION-v1",
+                "roles": {"required": ["overview", "detail_damage", "id_document", "extra_role"]},
+                "time": {"max_skew_seconds": 300},
+            }
+            policy_path = Path(tmp) / "policy.json"
+            policy_path.write_text(json.dumps(policy), encoding="utf-8")
+
+            result = verify_bundle(bundle_path, Path(tmp), None, policy_path)
             self.assertEqual(result["decision"], "invalid")
             self.assertTrue(result["issues"])
 

@@ -1,6 +1,7 @@
 const bundleInput = document.getElementById("bundle-input");
 const mediaInput = document.getElementById("media-input");
 const certificateInput = document.getElementById("certificate-input");
+const policyInput = document.getElementById("policy-input");
 const verifyBtn = document.getElementById("verify-btn");
 const resultEl = document.getElementById("result");
 const statusEl = document.getElementById("status");
@@ -51,7 +52,7 @@ const collectMediaMap = async (files) => {
   return map;
 };
 
-const verifyBundle = async (bundle, mediaMap, certificate) => {
+const verifyBundle = async (bundle, mediaMap, certificate, policy) => {
   const issues = [];
   const record = bundle.record || {};
   const digests = record.digests || {};
@@ -150,6 +151,42 @@ const verifyBundle = async (bundle, mediaMap, certificate) => {
     }
   }
 
+  if (policy?.roles?.required?.length) {
+    const roles = (bundle.rti2?.set?.files || []).map((item) => item.role);
+    const missing = policy.roles.required.filter((role) => !roles.includes(role));
+    if (missing.length) {
+      issues.push({
+        code: "POLICY_COVERAGE_INVALID",
+        severity: "critical",
+        layer: "policy",
+        details: "rti2 coverage.status does not match policy requirements",
+      });
+    }
+  }
+
+  if (policy?.time?.max_skew_seconds) {
+    const rti0Time = Date.parse(bundle.rti0?.time_utc);
+    const captureTimes = (bundle.rti1?.files || [])
+      .map((item) => Date.parse(item.capture_time_utc))
+      .filter((value) => !Number.isNaN(value));
+    if (captureTimes.length) {
+      const earliest = Math.min(...captureTimes);
+      const latest = Math.max(...captureTimes);
+      const maxSkewMs = policy.time.max_skew_seconds * 1000;
+      if (
+        Math.abs(earliest - rti0Time) > maxSkewMs ||
+        Math.abs(latest - rti0Time) > maxSkewMs
+      ) {
+        issues.push({
+          code: "TIME_WINDOW_INVALID",
+          severity: "critical",
+          layer: "rti4",
+          details: "capture times outside RTI-0 time window",
+        });
+      }
+    }
+  }
+
   if (certificate?.rti6?.certificate) {
     const certHash =
       certificate.rti6.certificate.integrity?.record_hash ||
@@ -218,7 +255,10 @@ verifyBtn.addEventListener("click", async () => {
   const certificate = certificateInput.files.length
     ? await parseJsonFile(certificateInput.files[0])
     : null;
-  const result = await verifyBundle(bundle, mediaMap, certificate);
+  const policy = policyInput.files.length
+    ? await parseJsonFile(policyInput.files[0])
+    : null;
+  const result = await verifyBundle(bundle, mediaMap, certificate, policy);
   resultEl.textContent = JSON.stringify(result, null, 2);
   updateStatus(`Decision: ${result.decision.toUpperCase()}`);
   downloadBtn.disabled = false;

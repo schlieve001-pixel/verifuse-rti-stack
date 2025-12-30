@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from core.canonical import canonicalize
 from core.crypto import sha256_file, sha256_hex
+from core.policy import Policy, load_policy
 
 
 @dataclass
@@ -202,10 +203,14 @@ def _verify_media(bundle: Dict[str, Any], media_root: Path) -> List[Issue]:
 
 
 def verify_bundle(
-    bundle_path: Path, media_root: Path, certificate_path: Optional[Path] = None
+    bundle_path: Path,
+    media_root: Path,
+    certificate_path: Optional[Path] = None,
+    policy_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
     bundle = _load_json(bundle_path)
     issues: List[Issue] = []
+    policy = load_policy(policy_path) if policy_path else None
 
     issues.extend(_validate_presence(bundle))
     if issues:
@@ -216,12 +221,14 @@ def verify_bundle(
     issues.extend(_verify_media(bundle, media_root))
     issues.extend(_verify_cross_links(bundle))
     issues.extend(_verify_policy_ids(bundle))
+    if policy:
+        issues.extend(_verify_policy_coverage(bundle, policy))
     issues.extend(_verify_transcript_refs(bundle))
     issues.extend(_verify_anchor_phrase(bundle))
-    issues.extend(_verify_rti4_checks(bundle, media_root))
+    issues.extend(_verify_rti4_checks(bundle, media_root, policy))
     if certificate_path:
         issues.extend(_verify_certificate(bundle, certificate_path))
-    issues.extend(_verify_time_window(bundle))
+    issues.extend(_verify_time_window(bundle, policy))
     issues.extend(_verify_transcript(bundle))
     return _result(bundle, issues)
 
@@ -387,14 +394,16 @@ def _verify_anchor_phrase(bundle: Dict[str, Any]) -> List[Issue]:
     return issues
 
 
-def _verify_rti4_checks(bundle: Dict[str, Any], media_root: Path) -> List[Issue]:
+def _verify_rti4_checks(
+    bundle: Dict[str, Any], media_root: Path, policy: Optional[Policy]
+) -> List[Issue]:
     issues: List[Issue] = []
     checks = bundle["rti4"].get("checks", {})
     time_checks = checks.get("time", {})
     files_checks = checks.get("files", {})
     policy_checks = checks.get("policy", {})
 
-    time_issues = _verify_time_window(bundle)
+    time_issues = _verify_time_window(bundle, policy)
     if time_issues and time_checks.get("time_window_ok", True):
         issues.append(
             Issue(
@@ -433,6 +442,24 @@ def _verify_rti4_checks(bundle: Dict[str, Any], media_root: Path) -> List[Issue]
     return issues
 
 
+def _verify_policy_coverage(bundle: Dict[str, Any], policy: Policy) -> List[Issue]:
+    issues: List[Issue] = []
+    roles = [item.get("role") for item in bundle["rti2"].get("set", {}).get("files", [])]
+    missing = sorted(role for role in policy.required if role not in roles)
+    coverage_status = "complete" if not missing else "partial"
+    recorded = bundle["rti2"].get("set", {}).get("coverage", {}).get("status")
+    if recorded and recorded != coverage_status:
+        issues.append(
+            Issue(
+                code="POLICY_COVERAGE_INVALID",
+                severity="critical",
+                layer="policy",
+                details="rti2 coverage.status does not match policy requirements",
+            )
+        )
+    return issues
+
+
 def _parse_utc(value: str) -> Optional[datetime]:
     if not value:
         return None
@@ -447,7 +474,7 @@ def _parse_utc(value: str) -> Optional[datetime]:
     return parsed.astimezone(timezone.utc)
 
 
-def _verify_time_window(bundle: Dict[str, Any]) -> List[Issue]:
+def _verify_time_window(bundle: Dict[str, Any], policy: Optional[Policy]) -> List[Issue]:
     issues: List[Issue] = []
     rti0_time = _parse_utc(bundle["rti0"].get("time_utc"))
     if not rti0_time:
@@ -467,9 +494,13 @@ def _verify_time_window(bundle: Dict[str, Any]) -> List[Issue]:
             captures.append(capture_time)
     if not captures:
         return issues
-    max_skew = bundle["rti4"].get("checks", {}).get("time", {}).get(
-        "max_skew_seconds"
-    )
+    max_skew = None
+    if policy and policy.time_window_seconds is not None:
+        max_skew = policy.time_window_seconds
+    if max_skew is None:
+        max_skew = bundle["rti4"].get("checks", {}).get("time", {}).get(
+            "max_skew_seconds"
+        )
     if max_skew is None:
         return issues
     earliest = min(captures)
