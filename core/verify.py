@@ -64,10 +64,95 @@ def _validate_presence(bundle: Dict[str, Any]) -> List[Issue]:
                 Issue(
                     code="SCHEMA_ERROR",
                     severity="critical",
-                    layer="schema",
-                    details=f"missing top-level key: {key}",
+                    layer=key if key != "record" else "record",
+                    details=f"schema violation at /{key}: missing required object",
                 )
             )
+    return issues
+
+
+def _schema_error(layer: str, path: str, message: str) -> Issue:
+    return Issue(
+        code="SCHEMA_ERROR",
+        severity="critical",
+        layer=layer,
+        details=f"schema violation at {path}: {message}",
+    )
+
+
+def _is_valid_type(value: Any, expected: str) -> bool:
+    if expected == "object":
+        return isinstance(value, dict)
+    if expected == "array":
+        return isinstance(value, list)
+    if expected == "string":
+        return isinstance(value, str)
+    if expected == "boolean":
+        return isinstance(value, bool)
+    if expected == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return True
+
+
+def _validate_schema_value(
+    value: Any, schema: Dict[str, Any], path: str, layer: str, issues: List[Issue]
+) -> None:
+    schema_type = schema.get("type")
+    if schema_type and not _is_valid_type(value, schema_type):
+        issues.append(
+            _schema_error(
+                layer,
+                path,
+                f"expected {schema_type} but found {type(value).__name__}",
+            )
+        )
+        return
+    if schema_type == "object":
+        required = schema.get("required", [])
+        properties = schema.get("properties", {})
+        for prop in required:
+            if prop not in value:
+                issues.append(
+                    _schema_error(
+                        layer, f"{path}/{prop}", "missing required field"
+                    )
+                )
+        for prop, subschema in properties.items():
+            if prop in value:
+                _validate_schema_value(
+                    value[prop], subschema, f"{path}/{prop}", layer, issues
+                )
+    if schema_type == "array":
+        items_schema = schema.get("items")
+        if items_schema:
+            for idx, item in enumerate(value):
+                _validate_schema_value(
+                    item, items_schema, f"{path}/{idx}", layer, issues
+                )
+
+
+def _load_schemas() -> Dict[str, Dict[str, Any]]:
+    schema_dir = Path(__file__).resolve().parents[1] / "schemas"
+    schemas: Dict[str, Dict[str, Any]] = {}
+    for name in ("rti0", "rti1", "rti2", "rti3", "rti4", "rti5", "rti6"):
+        schema_path = schema_dir / f"{name}.json"
+        schemas[name] = json.loads(schema_path.read_text(encoding="utf-8"))
+    return schemas
+
+
+def _validate_rti_schema(
+    payload: Optional[Dict[str, Any]],
+    schema: Dict[str, Any],
+    layer: str,
+    base_path: str,
+) -> List[Issue]:
+    issues: List[Issue] = []
+    if payload is None:
+        issues.append(_schema_error(layer, base_path, "missing required object"))
+        return issues
+    _validate_schema_value(payload, schema, base_path, layer, issues)
     return issues
 
 
@@ -90,7 +175,7 @@ def _verify_digests(bundle: Dict[str, Any]) -> List[Issue]:
                     code="SCHEMA_ERROR",
                     severity="critical",
                     layer=layer,
-                    details=f"missing {digest_key} in record.digests",
+                    details=f"schema violation at /record/digests/{digest_key}: missing required field",
                 )
             )
             continue
@@ -118,7 +203,7 @@ def _verify_record_hash(bundle: Dict[str, Any]) -> List[Issue]:
                 code="SCHEMA_ERROR",
                 severity="critical",
                 layer="record",
-                details="missing record_hash in record.digests",
+                details="schema violation at /record/digests/record_hash: missing required field",
             )
         )
         return issues
@@ -155,7 +240,7 @@ def _verify_media(bundle: Dict[str, Any], media_root: Path) -> List[Issue]:
                     code="SCHEMA_ERROR",
                     severity="critical",
                     layer="media",
-                    details=f"missing expected_path for {file_id}",
+                    details=f"schema violation at /record/media_index: missing expected_path for {file_id}",
                     related_ids=[file_id],
                 )
             )
@@ -211,24 +296,48 @@ def verify_bundle(
     if issues:
         return _result(bundle, issues)
 
+    schemas = _load_schemas()
+    for name in ("rti0", "rti1", "rti2", "rti3", "rti4"):
+        issues.extend(
+            _validate_rti_schema(
+                bundle.get(name),
+                schemas[name],
+                name,
+                f"/{name}",
+            )
+        )
+    certificate = None
+    if certificate_path:
+        certificate = _load_json(certificate_path)
+        issues.extend(
+            _validate_rti_schema(
+                certificate.get("rti6"),
+                schemas["rti6"],
+                "certificate",
+                "/rti6",
+            )
+        )
+    if issues:
+        return _result(bundle, issues)
+
     issues.extend(_verify_digests(bundle))
     issues.extend(_verify_record_hash(bundle))
     issues.extend(_verify_media(bundle, media_root))
     issues.extend(_verify_cross_links(bundle))
     issues.extend(_verify_policy_ids(bundle))
     issues.extend(_verify_transcript_refs(bundle))
-    if certificate_path:
-        issues.extend(_verify_certificate(bundle, certificate_path))
+    if certificate_path and certificate:
+        issues.extend(_verify_certificate(bundle, certificate))
     issues.extend(_verify_time_window(bundle))
     issues.extend(_verify_transcript(bundle))
     return _result(bundle, issues)
 
 
 def _verify_certificate(
-    bundle: Dict[str, Any], certificate_path: Path
+    bundle: Dict[str, Any], certificate: Dict[str, Any]
 ) -> List[Issue]:
     issues: List[Issue] = []
-    certificate = _load_json(certificate_path).get("rti6", {}).get("certificate", {})
+    certificate = certificate.get("rti6", {}).get("certificate", {})
     record_hash = (
         certificate.get("integrity", {}).get("record_hash")
         or certificate.get("record_hash")
@@ -384,7 +493,7 @@ def _verify_time_window(bundle: Dict[str, Any]) -> List[Issue]:
                 code="SCHEMA_ERROR",
                 severity="critical",
                 layer="rti0",
-                details="invalid or missing rti0.time_utc",
+                details="schema violation at /rti0/time_utc: invalid or missing value",
             )
         )
         return issues

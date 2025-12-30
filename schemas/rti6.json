@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RTI-6",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["certificate"],
+  "properties": {
+    "certificate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["record_id"],
+      "properties": {
+        "record_id": {"type": "string"},
+        "record_hash": {"type": "string"},
+        "integrity": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "record_hash": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}
