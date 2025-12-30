@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rti-verifier"
+version = "0.1.0"
+description = "Offline RTI bundle verifier"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+  {name = "VeriFuse Team"}
+]
+
+[project.scripts]
+rti-verify = "cli.rti_cli:main"
+
+[tool.setuptools]
+packages = ["core", "cli", "tests"]
+package-dir = {"" = "."}
+

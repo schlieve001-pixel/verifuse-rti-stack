@@ -1,0 +1,2 @@
+# No external dependencies — stdlib only for core
+# This file documents runtime requirements.
